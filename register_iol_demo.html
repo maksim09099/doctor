@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oculus MD — демо кабинет</title>
+  <style>
+    body{
+      margin:0;
+      font-family:Arial, sans-serif;
+      background:#f4f8fb;
+      color:#223;
+    }
+    .wrap{
+      max-width:900px;
+      margin:0 auto;
+      padding:24px;
+    }
+    h1,h2{margin:0 0 12px;}
+    .card{
+      background:#fff;
+      border-radius:16px;
+      padding:20px;
+      box-shadow:0 8px 24px rgba(0,0,0,.08);
+      margin-bottom:18px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:700px){
+      .grid{grid-template-columns:1fr;}
+    }
+    input, select, button, textarea{
+      width:100%;
+      box-sizing:border-box;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid #ccd6dd;
+      font-size:16px;
+    }
+    button{
+      cursor:pointer;
+      background:#0f9d92;
+      color:#fff;
+      border:none;
+      font-weight:700;
+    }
+    button:hover{opacity:.95;}
+    .ghost{
+      background:#eef6f6;
+      color:#0f6f68;
+      border:1px solid #bfe0dd;
+    }
+    .result{
+      white-space:pre-wrap;
+      background:#0f1720;
+      color:#dbeafe;
+      padding:14px;
+      border-radius:12px;
+      margin-top:12px;
+      font-size:14px;
+      overflow:auto;
+    }
+    .muted{color:#607080;}
+    .ok{color:green;font-weight:700;}
+    .row{margin-top:12px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Oculus MD — демо кабинет врача</h1>
+    <p class="muted">Готовая страница для регистрации, входа, создания пациента и калькулятора ИОЛ.</p>
+
+    <div class="card">
+      <h2>1. Регистрация</h2>
+      <div class="grid">
+        <input id="regName" type="text" placeholder="ФИО" />
+        <input id="regEmail" type="email" placeholder="Email" />
+        <input id="regPassword" type="password" placeholder="Пароль" />
+        <select id="regRole">
+          <option value="doctor">Районный офтальмолог</option>
+          <option value="surgeon">Хирург</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="registerBtn">Зарегистрироваться</button>
+      </div>
+      <div class="result" id="registerResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Вход</h2>
+      <div class="grid">
+        <input id="loginEmail" type="email" placeholder="Email" />
+        <input id="loginPassword" type="password" placeholder="Пароль" />
+      </div>
+      <div class="row">
+        <button id="loginBtn">Войти</button>
+      </div>
+      <div class="result" id="loginResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>3. Создание пациента</h2>
+      <div class="grid">
+        <input id="patientName" type="text" placeholder="ФИО пациента" />
+        <input id="patientSnils" type="text" placeholder="СНИЛС" />
+        <input id="patientPolicy" type="text" placeholder="Номер полиса" />
+        <input id="patientDiagnosis" type="text" placeholder="Диагноз МКБ-10" />
+        <select id="patientStatus">
+          <option value="yellow">Желтый</option>
+          <option value="green">Зеленый</option>
+          <option value="red">Красный</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="createPatientBtn">Создать пациента</button>
+      </div>
+      <div class="result" id="patientResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>4. Калькулятор ИОЛ</h2>
+      <div class="grid">
+        <input id="calcPatientId" type="number" placeholder="ID пациента" value="1" />
+        <select id="formulaName">
+          <option value="SRK/T">SRK/T</option>
+          <option value="Haigis">Haigis</option>
+        </select>
+        <input id="k1" type="number" step="0.01" placeholder="K1" />
+        <input id="k2" type="number" step="0.01" placeholder="K2" />
+        <input id="acd" type="number" step="0.01" placeholder="ACD" />
+        <input id="axialLength" type="number" step="0.01" placeholder="Осевая длина" />
+        <input id="aConstant" type="number" step="0.01" placeholder="A-constant" />
+        <input id="targetRefraction" type="number" step="0.01" placeholder="Целевая рефракция" value="0" />
+      </div>
+      <div class="row">
+        <button id="calcBtn">Рассчитать ИОЛ</button>
+      </div>
+      <div class="result" id="calcResult"></div>
+    </div>
+
+    <div class="card">
+      <h2>5. Список пациентов</h2>
+      <button class="ghost" id="loadPatientsBtn">Загрузить пациентов</button>
+      <div class="result" id="patientsListResult"></div>
+    </div>
+  </div>
+
+  <script>
+    // Для браузера на этом же ПК
+    const API_BASE = "https://oculus-md-api.onrender.com";
+
+    // Если тестируешь в Android Emulator, замени на:
+    // const API_BASE = "http://10.0.2.2:8001";
+
+    function showResult(id, data) {
+      document.getElementById(id).textContent =
+        typeof data === "string" ? data : JSON.stringify(data, null, 2);
+    }
+
+    async function api(path, method, body) {
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json"
+      };
+      if (token) headers["Authorization"] = "Bearer " + token;
+
+      const res = await fetch(API_BASE + path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw data;
+      return data;
+    }
+
+    document.getElementById("registerBtn").addEventListener("click", async () => {
+      try {
+        const data = await api("/auth/register", "POST", {
+          full_name: document.getElementById("regName").value,
+          email: document.getElementById("regEmail").value,
+          password: document.getElementById("regPassword").value,
+          role: document.getElementById("regRole").value
+        });
+        localStorage.setItem("token", data.access_token);
+        showResult("registerResult", data);
+      } catch (e) {
+        showResult("registerResult", e);
+      }
+    });
+
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      try {
+        const data = await api("/auth/login", "POST", {
+          email: document.getElementById("loginEmail").value,
+          password: document.getElementById("loginPassword").value
+        });
+        localStorage.setItem("token", data.access_token);
+        showResult("loginResult", data);
+      } catch (e) {
+        showResult("loginResult", e);
+      }
+    });
+
+    document.getElementById("createPatientBtn").addEventListener("click", async () => {
+      try {
+        const data = await api("/patients", "POST", {
+          full_name: document.getElementById("patientName").value,
+          snils: document.getElementById("patientSnils").value,
+          policy_number: document.getElementById("patientPolicy").value,
+          diagnosis_icd10: document.getElementById("patientDiagnosis").value,
+          status: document.getElementById("patientStatus").value
+        });
+        showResult("patientResult", data);
+      } catch (e) {
+        showResult("patientResult", e);
+      }
+    });
+
+    document.getElementById("calcBtn").addEventListener("click", async () => {
+      try {
+        const data = await api("/iol/calculate", "POST", {
+          patient_id: Number(document.getElementById("calcPatientId").value),
+          formula_name: document.getElementById("formulaName").value,
+          k1: Number(document.getElementById("k1").value),
+          k2: Number(document.getElementById("k2").value),
+          acd: Number(document.getElementById("acd").value || 0),
+          axial_length: Number(document.getElementById("axialLength").value),
+          a_constant: Number(document.getElementById("aConstant").value || 0),
+          target_refraction: Number(document.getElementById("targetRefraction").value || 0)
+        });
+        showResult("calcResult", data);
+      } catch (e) {
+        showResult("calcResult", e);
+      }
+    });
+
+    document.getElementById("loadPatientsBtn").addEventListener("click", async () => {
+      try {
+        const data = await api("/patients", "GET");
+        showResult("patientsListResult", data);
+      } catch (e) {
+        showResult("patientsListResult", e);
+      }
+    });
+  </script>
+</body>
+</html>

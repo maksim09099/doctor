@@ -1,0 +1,43 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "full_name": "Иван Иванов",
+      "email": "ivan@example.com",
+      "hashed_password": "$2b$12$AmYEI31VMGlTQv7/YAyl0ejYq49kCqSu195s/vUXp5fYi.JD2zU9m",
+      "role": "doctor"
+    },
+    {
+      "id": 2,
+      "full_name": "Потапов Максимилиан",
+      "email": "maksimpotapov@gmail.com",
+      "hashed_password": "$2b$12$/Q2fhQfbX6FRbokkMBzdNeX.LG2cMxWNQVkG8b/kn.t0gYxhRux6W",
+      "role": "doctor"
+    }
+  ],
+  "patients": [
+    {
+      "id": 1,
+      "full_name": "Петров Петр Петрович",
+      "snils": "123-456-789 00",
+      "policy_number": "9999888877776666",
+      "diagnosis_icd10": "H25.0",
+      "status": "yellow"
+    }
+  ],
+  "iol_calculations": [
+    {
+      "id": 1,
+      "patient_id": 1,
+      "formula_name": "SRK/T",
+      "k1": 43.25,
+      "k2": 44.1,
+      "acd": 3.2,
+      "axial_length": 23.75,
+      "a_constant": 118.4,
+      "target_refraction": 0.0,
+      "mean_k": 43.67,
+      "message": "Расчёт сохранён. Требуется подтверждение хирургом."
+    }
+  ]
+}
