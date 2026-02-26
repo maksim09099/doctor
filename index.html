@@ -1037,58 +1037,84 @@
         /* =========================================================
            ПЛАВАЮЩАЯ КНОПКА-БЫСТРЫЕ ДЕЙСТВИЯ
            ========================================================= */
-        .fab{
-          position:fixed;
-          right:18px;
-          bottom:18px;
-          z-index:110;
-          display:grid;
-          justify-items:end;
-          gap:10px;
-        }
-        .fab-menu{
-          display:grid;
-          gap:8px;
-          opacity:0;
-          transform: translateY(10px);
-          pointer-events:none;
-          transition: opacity var(--transition), transform var(--transition);
-        }
-        .fab.is-open .fab-menu{
-          opacity:1;
-          transform: translateY(0);
-          pointer-events:auto;
-        }
-        .fab-menu button,
-        .fab-menu a{
-          border:1px solid var(--line);
-          background:var(--white);
-          color:var(--text);
-          border-radius:999px;
-          min-height:50px;
-          padding:10px 14px;
-          display:inline-flex;
-          align-items:center;
-          gap:10px;
-          font-weight:900;
-          cursor:pointer;
-          box-shadow: var(--shadow);
-          white-space:nowrap;
-        }
-        .fab-menu i{ color:var(--teal-2); }
-        .fab-main{
-          width:62px;height:62px;border-radius:999px;
-          border:0;
-          background:var(--grad);
-          color:#fff;
-          box-shadow: var(--shadow);
-          display:grid;place-items:center;
-          cursor:pointer;
-          font-size:1.2rem;
-        }
-        .fab-main .fa-xmark{ display:none; }
-        .fab.is-open .fab-main .fa-comments{ display:none; }
-        .fab.is-open .fab-main .fa-xmark{ display:inline-block; }
+/* =========================================================
+   ПЛАВАЮЩАЯ КНОПКА-БЫСТРЫЕ ДЕЙСТВИЯ (FAB) — FIX
+   чтобы не перекрывала кнопку "Срочная помощь"
+   ========================================================= */
+.fab{
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:110;
+
+  /* ВАЖНО: фиксируем размеры контейнера,
+     чтобы скрытое меню не создавало "невидимую плиту" */
+  width:62px;
+  height:62px;
+}
+
+.fab-menu{
+  /* ВАЖНО: меню выводим из потока, чтобы оно не растягивало .fab */
+  position:absolute;
+  right:0;
+  bottom:72px; /* 62px кнопка + ~10px отступ */
+
+  display:grid;
+  gap:8px;
+
+  opacity:0;
+  transform: translateY(10px);
+  pointer-events:none;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.fab.is-open .fab-menu{
+  opacity:1;
+  transform: translateY(0);
+  pointer-events:auto;
+}
+
+.fab-menu button,
+.fab-menu a{
+  border:1px solid var(--line);
+  background:var(--white);
+  color:var(--text);
+  border-radius:999px;
+  min-height:50px;
+  padding:10px 14px;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow: var(--shadow);
+  white-space:nowrap;
+}
+
+.fab-menu i{ color:var(--teal-2); }
+
+.fab-main{
+  width:62px;
+  height:62px;
+  border-radius:999px;
+  border:0;
+  background:var(--grad);
+  color:#fff;
+  box-shadow: var(--shadow);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  font-size:1.2rem;
+}
+
+.fab-main .fa-xmark{ display:none; }
+.fab.is-open .fab-main .fa-comments{ display:none; }
+.fab.is-open .fab-main .fa-xmark{ display:inline-block; }
+
+/* Если вдруг "Срочная помощь" всё ещё перекрывается (редко) —
+   можно раскомментировать:
+.panic-fixed{ z-index:120; }
+*/
 
         /* =========================================================
            TOAST (подсказки)
@@ -1665,10 +1691,15 @@
                             <div class="prep-meta-text" id="prepProgressText">
                                 <i class="fa-solid fa-star"></i> Выполнено 0 из 6 шагов
                             </div>
-                            <div class="download-row">
-                                <button class="btn btn-soft" type="button" id="downloadMemoBtn">
-                                    📥 Скачать памятку
-                                </button>
+<div class="download-row">
+  <button class="btn btn-soft" type="button" id="downloadMemoBtn">
+    📥 Скачать памятку
+  </button>
+
+  <button class="btn btn-ghost" type="button" id="resetProgressBtn">
+    🔄 Сбросить прогресс
+  </button>
+</div>
                             </div>
                         </div>
                     </div>
@@ -2421,6 +2452,32 @@
       const resetChecklistBtn = document.getElementById("resetChecklistBtn");
 
       const downloadMemoBtn = document.getElementById("downloadMemoBtn");
+      const resetProgressBtn = document.getElementById("resetProgressBtn");
+      resetProgressBtn?.addEventListener("click", () => {
+  const ok = confirm("Сбросить прогресс, чек-листы и самочувствие?");
+  if (!ok) return;
+
+  // удалить сохранения
+  localStorage.removeItem(LS.prep);
+  localStorage.removeItem(LS.checklist);
+  localStorage.removeItem(LS.mood);
+
+  // сброс состояния в памяти
+  prepState.completedCount = 0;
+  prepState.previewIndex = 0;
+  checklistState = {};
+
+  // сброс выделения самочувствия на UI
+  moodButtons.forEach(b => b.classList.remove("is-selected"));
+  moodMsg.classList.remove("show");
+
+  // сохранить и перерисовать
+  savePrep();
+  saveChecklist();
+  renderAll();
+
+  showToast("Прогресс сброшен ✅");
+});
 
       // Mood
       const moodMsg = document.getElementById("moodMsg");
@@ -2457,7 +2514,7 @@
       /* ------------------------------
          STATE (localStorage)
          ------------------------------ */
-      let prepState = { completedCount: 1, previewIndex: 1 }; // приятный старт
+      let prepState = { completedCount: 0, previewIndex: 0 }; // приятный старт
       let checklistState = {}; // { stepId: [true/false...] }
 
       function safeParse(v, fallback){
@@ -2727,6 +2784,24 @@
          Скачать памятку (Blob -> .txt)
          ========================================================= */
       downloadMemoBtn.addEventListener("click", ()=>{
+        resetProgressBtn?.addEventListener("click", () => {
+  // удаляем сохранения (ключи берём из LS — как у тебя на скрине)
+  localStorage.removeItem(LS.prep);
+  localStorage.removeItem(LS.checklist);
+  localStorage.removeItem(LS.mood);
+
+  // сброс состояния в памяти
+  prepState.completedCount = 0;
+  prepState.previewIndex = 0;
+  checklistState = {};
+
+  // сохранить и перерисовать
+  savePrep();
+  saveChecklist();
+  renderAll();
+
+  showToast("Прогресс сброшен ✅");
+});
         const done = prepState.completedCount;
         const total = steps.length;
 
@@ -3215,6 +3290,7 @@
       });
 
     })();
+    
 </script>
 </body>
 </html>
